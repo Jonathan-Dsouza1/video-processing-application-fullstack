@@ -8,7 +8,7 @@ import java.nio.file.*;
 
 @Service
 public class UploadService {
-    private static final String TEMP_DIR = "uploads/tmp";
+    private static final String TEMP_DIR = "uploads/tmp/";
     private static final String FINAL_DIR = "uploads/final/";
 
     private final VideoProcessingService videoProcessingService;

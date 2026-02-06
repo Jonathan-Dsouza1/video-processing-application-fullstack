@@ -13,7 +13,7 @@ import java.nio.file.*;
 
 @RestController
 @RequestMapping("/upload")
-@CrossOrigin(origins = "http://localhost:5174")
+@CrossOrigin(origins = "http://localhost:5173")
 public class VideoController {
     private final UploadService uploadService;
 
