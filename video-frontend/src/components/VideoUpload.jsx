@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { uploadChunk } from '../api/videoApi';
 import VideoPlayer from './VideoPlayer';
 
-const CHUNK_SIZE = 5 * 1024 * 1024 // 5MB
+const CHUNK_SIZE = 10 * 1024 * 1024 // 10MB
 
 export default function VideoUpload() {
   const [progress, setProgress] = useState(0);

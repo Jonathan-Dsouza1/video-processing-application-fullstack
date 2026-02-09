@@ -1,16 +1,12 @@
-############################
 # Backend (Spring Boot)
-############################
 HELP.md
-target/
+video-backend/target/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
-uploads/
+video-backend/uploads/
 
-############################
 # STS / Eclipse
-############################
 .apt_generated
 .classpath
 .factorypath
@@ -19,17 +15,13 @@ uploads/
 .springBeans
 .sts4-cache
 
-############################
 # IntelliJ IDEA
-############################
 .idea/
 *.iws
 *.iml
 *.ipr
 
-############################
 # NetBeans
-############################
 /nbproject/private/
 /nbbuild/
 /dist/
@@ -39,9 +31,7 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
-############################
 # Frontend (Vite + React)
-############################
 node_modules/
 dist-ssr/
 coverage/
@@ -56,22 +46,16 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-############################
 # Environment variables
-############################
 .env
 .env.*
 
-############################
 # VS Code
-############################
 .vscode/*
 !.vscode/extensions.json
 .vscode/
 
-############################
 # OS / Misc
-############################
 .DS_Store
 Thumbs.db
 *.suo
@@ -79,3 +63,8 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+# Docker
+**/uploads/
+*.tar
+docker-data/

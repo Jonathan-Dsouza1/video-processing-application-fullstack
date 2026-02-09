@@ -23,10 +23,16 @@ public class UploadService {
             Files.createDirectories(dir);
 
             Path chunkPath = dir.resolve(index + ".part");
-            Files.write(chunkPath, chunk.getBytes());
+
+            Files.copy(
+                    chunk.getInputStream(),
+                    chunkPath,
+                    StandardCopyOption.REPLACE_EXISTING
+            );
 
             // If last chunk -> merge
-            if(index == total - 1){
+            long uploadedChunks = Files.list(dir).count();
+            if(uploadedChunks == total){
                 mergeChunks(fileId, total);
                 videoProcessingService.processAsync(fileId);
 
@@ -41,14 +47,22 @@ public class UploadService {
     }
 
     private void mergeChunks(String fileId, int total) throws IOException {
+        Path tempDir = Paths.get(TEMP_DIR, fileId);
         Path finalFile = Paths.get(FINAL_DIR + fileId + ".mp4");
+
         Files.createDirectories(finalFile.getParent());
 
         try(OutputStream out = Files.newOutputStream(finalFile)) {
             for(int i = 0; i < total; i++){
-                Path chunk = Paths.get(TEMP_DIR + fileId + "/" + i + ".part");
-                Files.copy(chunk, out);
+                Path chunkPath = tempDir.resolve(i + ".part");
+                // Path chunk = Paths.get(TEMP_DIR + fileId + "/" + i + ".part");
+                Files.copy(chunkPath, out);
             }
         }
+
+        for(int i = 0; i < total; i++){
+            Files.deleteIfExists(tempDir.resolve(i + ".part"));
+        }
+        Files.deleteIfExists(tempDir);
     }
 }

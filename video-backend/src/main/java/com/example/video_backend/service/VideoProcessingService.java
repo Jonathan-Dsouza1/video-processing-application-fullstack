@@ -7,21 +7,37 @@ import org.springframework.stereotype.Service;
 public class VideoProcessingService {
     @Async
     public void processAsync(String fileId) {
-        try {
-            ProcessBuilder pb = new ProcessBuilder(
-                    "ffmpeg",
-                    "-i", "uploads/final/" + fileId + ".mp4",
-                    "-vf", "scale=1280:720",
-                    "uploads/final/" + fileId + "_720p.mp4"
-            );
+        String input = "uploads/final/" + fileId + ".mp4";
 
-            pb.inheritIO();
-            Process process = pb.start();
-            process.waitFor();
+        try {
+            runFfmpeg(input, "uploads/final/" + fileId + "_480p.mp4", "854:480");
+            runFfmpeg(input, "uploads/final/" + fileId + "_720p.mp4", "1280:720");
+            runFfmpeg(input, "uploads/final/" + fileId + "_1080p.mp4", "1920:1080");
 
             System.out.println("Video processing completed for " + fileId);
+
         } catch (Exception e){
             e.printStackTrace();
         }
+    }
+
+    private void runFfmpeg(String input, String output, String scale) throws Exception {
+        ProcessBuilder pb = new ProcessBuilder(
+                "ffmpeg",
+                "-y",
+                "-i", input,
+                "-vf", "scale=" + scale,
+                "-c:v", "libx264",
+                "-preset", "veryfast",
+                "-crf", "23",
+                "-c:a", "copy",
+                output
+        );
+
+        pb.inheritIO();
+        Process process = pb.start();
+        int exitCode = process.waitFor();
+
+        System.out.println("FFmpeg finished for " + output + " with code: " + exitCode);
     }
 }
