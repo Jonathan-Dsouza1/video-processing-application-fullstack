@@ -1,6 +1,9 @@
 package com.example.video_backend.controller;
 
-import com.example.video_backend.service.UploadService;
+import com.example.video_backend.entities.Video;
+import com.example.video_backend.services.UploadService;
+import com.example.video_backend.services.VideoService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -10,16 +13,16 @@ import org.springframework.http.MediaType;
 
 import java.io.IOException;
 import java.nio.file.*;
+import java.time.LocalDateTime;
+import java.util.List;
 
 @RestController
 @RequestMapping("/upload")
 @CrossOrigin(origins = "http://localhost:5173")
+@RequiredArgsConstructor
 public class VideoController {
     private final UploadService uploadService;
-
-    public VideoController(UploadService uploadService){
-        this.uploadService = uploadService;
-    }
+    private final VideoService videoService;
 
     @PostMapping("/chunk")
     public ResponseEntity<?> uploadChunk(
@@ -32,9 +35,20 @@ public class VideoController {
         String processedFileName = uploadService.saveChunk(chunk, index, total, fileId);
 
         if(processedFileName != null){
+            Video video = Video.builder()
+                    .videoId(fileId)
+                    .title(fileId) // or send original name from frontend if available
+                    .storageName(processedFileName)
+                    .contentType("video/mp4")
+                    .filePath("uploads/final/" + processedFileName)
+                    .uploadedAt(LocalDateTime.now())
+                    .build();
+
+            videoService.save(video);
+
             return ResponseEntity.ok(processedFileName);
         }
-        return ResponseEntity.ok("Chunk recieved");
+        return ResponseEntity.ok("Chunk received");
     }
 
     @GetMapping("/video/{fileName}")
@@ -51,5 +65,15 @@ public class VideoController {
         return ResponseEntity.ok()
                 .contentType(MediaType.valueOf("video/mp4"))
                 .body(resource);
+    }
+
+    @GetMapping
+    public List<Video> getAllVideos(){
+        return videoService.getAllByLatestFirst();
+    }
+
+    @DeleteMapping("/{videoId}")
+    public void deleteVideo(@PathVariable String videoId){
+        videoService.delete(videoId);
     }
 }

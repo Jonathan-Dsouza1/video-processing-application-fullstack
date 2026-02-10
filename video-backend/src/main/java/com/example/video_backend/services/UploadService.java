@@ -1,4 +1,4 @@
-package com.example.video_backend.service;
+package com.example.video_backend.services;
 
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;

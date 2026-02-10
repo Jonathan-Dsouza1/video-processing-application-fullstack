@@ -3,7 +3,6 @@ export default function VideoPlayer({ fileName }) {
   
   return (
     <div style={{marginTop: "2rem"}}>
-      <h3>Processed Video</h3>
       <video 
         width="720" 
         controls

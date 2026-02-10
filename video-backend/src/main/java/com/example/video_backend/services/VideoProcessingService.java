@@ -1,4 +1,4 @@
-package com.example.video_backend.service;
+package com.example.video_backend.services;
 
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
