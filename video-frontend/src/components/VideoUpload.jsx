@@ -45,7 +45,7 @@ export default function VideoUpload() {
         i, 
         totalChunks, 
         fileId, 
-        selectedFile.name, 
+        selectedFile, 
         (chunkPercent) => {
           const overallPercent = Math.round(((i + chunkPercent / 100) / totalChunks) * 100);
           setProgress(overallPercent);

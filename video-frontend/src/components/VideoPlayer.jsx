@@ -2,7 +2,7 @@ export default function VideoPlayer({ fileName }) {
   if(!fileName) return null;
   
   return (
-    <div style={{marginTop: "2rem"}}>
+    <div className="mt-2 mb-2">
       <video 
         width="720" 
         controls
