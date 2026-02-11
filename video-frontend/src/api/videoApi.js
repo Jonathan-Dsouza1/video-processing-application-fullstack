@@ -1,11 +1,12 @@
 import api from "./axios";
 
-export function uploadChunk(chunk, index, total, fileId, onProgress) {
+export function uploadChunk(chunk, index, total, fileId, selectedFile, onProgress) {
   const formData = new FormData();
   formData.append("chunk", chunk);
   formData.append("index", index);
   formData.append("total", total);
   formData.append("fileId", fileId);
+  formData.append("title", selectedFile.name);
   
   return api.post("/upload/chunk", formData, {
     headers: { "Content-Type": "multipart/form-data" },
@@ -18,4 +19,12 @@ export function uploadChunk(chunk, index, total, fileId, onProgress) {
       }
     }
   });
+};
+
+export const getAllVideos  = () => {
+  return api.get("/upload");
+};
+
+export const deleteVideo = (videoId) => {
+  return api.delete(`/upload/${videoId}`);
 };

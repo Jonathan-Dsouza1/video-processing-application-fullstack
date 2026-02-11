@@ -4,6 +4,7 @@ import com.example.video_backend.entities.Video;
 import com.example.video_backend.services.UploadService;
 import com.example.video_backend.services.VideoService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -29,7 +30,8 @@ public class VideoController {
             @RequestParam MultipartFile chunk,
             @RequestParam int index,
             @RequestParam int total,
-            @RequestParam String fileId
+            @RequestParam String fileId,
+            @RequestParam String title
     ) {
         System.out.println("Received chunk " + index + " of " + fileId);
         String processedFileName = uploadService.saveChunk(chunk, index, total, fileId);
@@ -37,7 +39,7 @@ public class VideoController {
         if(processedFileName != null){
             Video video = Video.builder()
                     .videoId(fileId)
-                    .title(fileId) // or send original name from frontend if available
+                    .title(title)
                     .storageName(processedFileName)
                     .contentType("video/mp4")
                     .filePath("uploads/final/" + processedFileName)
@@ -46,7 +48,9 @@ public class VideoController {
 
             videoService.save(video);
 
-            return ResponseEntity.ok(processedFileName);
+            return ResponseEntity
+                    .status(HttpStatus.CREATED)
+                    .body(processedFileName);
         }
         return ResponseEntity.ok("Chunk received");
     }
@@ -68,12 +72,18 @@ public class VideoController {
     }
 
     @GetMapping
-    public List<Video> getAllVideos(){
-        return videoService.getAllByLatestFirst();
+    public ResponseEntity<List<Video>> getAllVideos(){
+        List<Video> videos = videoService.getAllByLatestFirst();
+
+        if(videos.isEmpty()){
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.ok(videos);
     }
 
     @DeleteMapping("/{videoId}")
-    public void deleteVideo(@PathVariable String videoId){
+    public ResponseEntity<Void> deleteVideo(@PathVariable String videoId){
         videoService.delete(videoId);
+        return ResponseEntity.noContent().build();
     }
 }

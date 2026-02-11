@@ -6,10 +6,11 @@ import com.example.video_backend.services.VideoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 
 @Service
@@ -41,6 +42,30 @@ public class VideoServiceImpl implements VideoService {
         if(!videoRepository.existsById(videoId)){
             throw new RuntimeException("Video not found with id: " + videoId);
         }
+
+        Video video = videoRepository.findById(videoId)
+                .orElseThrow(() -> new RuntimeException("Video not found " + videoId));
+
+        try {
+            Path originalPath = Paths.get(video.getFilePath());
+
+            Files.deleteIfExists(originalPath);
+
+            String fileName = video.getStorageName();
+            String baseName = fileName.substring(0, fileName.lastIndexOf("."));
+
+            Path directory = originalPath.getParent();
+
+            String[] resolutions = { "480p", "720p", "1080p" };
+
+            for(String res : resolutions){
+                Path resPath = directory.resolve(baseName + "_" + res + ".mp4");
+                Files.deleteIfExists(resPath);
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to delete video files", e);
+        }
+
         videoRepository.deleteById(videoId);
     }
 }

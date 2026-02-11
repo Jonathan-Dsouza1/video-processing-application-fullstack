@@ -40,7 +40,17 @@ export default function VideoUpload() {
       const end = Math.min(start + CHUNK_SIZE, file.size);
       const chunk = file.slice(start, end);
 
-      const res = await uploadChunk(chunk, i, totalChunks, fileId);
+      const res = await uploadChunk(
+        chunk, 
+        i, 
+        totalChunks, 
+        fileId, 
+        selectedFile.name, 
+        (chunkPercent) => {
+          const overallPercent = Math.round(((i + chunkPercent / 100) / totalChunks) * 100);
+          setProgress(overallPercent);
+        }
+      );
 
       if(
         res?.data && 
@@ -52,18 +62,6 @@ export default function VideoUpload() {
         setStatus("Ready");
       }
       setProgress(Math.round(((i + 1) / totalChunks) * 100));
-    }
-
-    if(finalFileName){
-      const history = JSON.parse(localStorage.getItem("videoHistory")) || [];
-
-      history.unshift({
-        originalName: selectedFile.name,
-        fileName: finalFileName,
-        uploadedAt: new Date().toISOString()
-      })
-
-      localStorage.setItem("videoHistory", JSON.stringify(history));
     }
   };
   
@@ -103,7 +101,7 @@ export default function VideoUpload() {
 
       {processedFileName && (
         <div className='mt-4'>
-          <h3 className='font-semibold mb-2'>{processedFileName}</h3>
+          <h3 className='font-semibold mb-2'>{selectedFile?.name}</h3>
           <VideoPlayer fileName = {processedFileName} />
         </div>
       )}
