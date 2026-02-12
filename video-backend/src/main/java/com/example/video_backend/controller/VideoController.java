@@ -1,9 +1,12 @@
 package com.example.video_backend.controller;
 
+import com.example.video_backend.config.RabbitConfig;
 import com.example.video_backend.entities.Video;
+import com.example.video_backend.messaging.VideoProcessingTask;
 import com.example.video_backend.services.UploadService;
 import com.example.video_backend.services.VideoService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -24,6 +27,7 @@ import java.util.List;
 public class VideoController {
     private final UploadService uploadService;
     private final VideoService videoService;
+    private final RabbitTemplate rabbitTemplate;
 
     @PostMapping("/chunk")
     public ResponseEntity<?> uploadChunk(
@@ -47,6 +51,10 @@ public class VideoController {
                     .build();
 
             videoService.save(video);
+
+            rabbitTemplate.convertAndSend(RabbitConfig.QUEUE,  new VideoProcessingTask(fileId, "480p"));
+            rabbitTemplate.convertAndSend(RabbitConfig.QUEUE,  new VideoProcessingTask(fileId, "720p"));
+            rabbitTemplate.convertAndSend(RabbitConfig.QUEUE,  new VideoProcessingTask(fileId, "1080p"));
 
             return ResponseEntity
                     .status(HttpStatus.CREATED)

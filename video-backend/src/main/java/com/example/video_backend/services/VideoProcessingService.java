@@ -5,17 +5,33 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class VideoProcessingService {
-    @Async
-    public void processAsync(String fileId) {
+    public void processResolution(String fileId, String resolution) {
         String input = "uploads/final/" + fileId + ".mp4";
+        String output;
+        String scale;
 
+        switch (resolution) {
+            case "480p":
+                output = "uploads/final/" + fileId + "_480.mp4";
+                scale = "854:480";
+                break;
+
+            case "720p":
+                output = "uploads/final/" + fileId + "_720.mp4";
+                scale = "1280:720";
+                break;
+
+            case "1080p":
+                output = "uploads/final/" + fileId + "_1080.mp4";
+                scale = "1920:1080";
+                break;
+
+            default:
+                throw new IllegalArgumentException("Unknown resolution " + resolution);
+        }
         try {
-            runFfmpeg(input, "uploads/final/" + fileId + "_480p.mp4", "854:480");
-            runFfmpeg(input, "uploads/final/" + fileId + "_720p.mp4", "1280:720");
-            runFfmpeg(input, "uploads/final/" + fileId + "_1080p.mp4", "1920:1080");
-
-            System.out.println("Video processing completed for " + fileId);
-
+            runFfmpeg(input, output, scale);
+            System.out.println(resolution + " completed for " + fileId);
         } catch (Exception e){
             e.printStackTrace();
         }
@@ -25,6 +41,7 @@ public class VideoProcessingService {
         ProcessBuilder pb = new ProcessBuilder(
                 "ffmpeg",
                 "-y",
+                "-threads", "2",
                 "-i", input,
                 "-vf", "scale=" + scale,
                 "-c:v", "libx264",

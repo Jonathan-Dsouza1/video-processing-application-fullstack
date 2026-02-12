@@ -11,12 +11,6 @@ public class UploadService {
     private static final String TEMP_DIR = "uploads/tmp/";
     private static final String FINAL_DIR = "uploads/final/";
 
-    private final VideoProcessingService videoProcessingService;
-
-    public UploadService(VideoProcessingService videoProcessingService){
-        this.videoProcessingService = videoProcessingService;
-    }
-
     public String saveChunk(MultipartFile chunk, int index, int total, String fileId) {
         try {
             Path dir = Paths.get(TEMP_DIR + fileId);
@@ -34,7 +28,6 @@ public class UploadService {
             long uploadedChunks = Files.list(dir).count();
             if(uploadedChunks == total){
                 mergeChunks(fileId, total);
-                videoProcessingService.processAsync(fileId);
 
                 String processedFileName = fileId + ".mp4";
                 System.out.println("Video processing completed for " + fileId);
@@ -55,7 +48,6 @@ public class UploadService {
         try(OutputStream out = Files.newOutputStream(finalFile)) {
             for(int i = 0; i < total; i++){
                 Path chunkPath = tempDir.resolve(i + ".part");
-                // Path chunk = Paths.get(TEMP_DIR + fileId + "/" + i + ".part");
                 Files.copy(chunkPath, out);
             }
         }
