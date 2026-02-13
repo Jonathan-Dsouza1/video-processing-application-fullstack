@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { uploadChunk } from '../api/videoApi';
+import { getVideoById } from "../api/videoApi";
 import VideoPlayer from './VideoPlayer';
 
 const CHUNK_SIZE = 10 * 1024 * 1024 // 10MB
@@ -58,12 +59,36 @@ export default function VideoUpload() {
         res.data.endsWith(".mp4")
       ) {
         finalFileName = res.data;
-        setProcessedFileName(res.data);
-        setStatus("Ready");
       }
       setProgress(Math.round(((i + 1) / totalChunks) * 100));
     }
+
+    if(finalFileName){
+      setStatus("Processing...");
+      pollUntilReady(fileId);
+    }
   };
+
+  const pollUntilReady = (videoId) => {
+    const interval = setInterval(async () =>{
+      try {
+        const res = await getVideoById(videoId);
+
+        if(res.data.status === "READY"){
+          setProcessedFileName(res.data.storageName);
+          setStatus("Ready");
+          clearInterval(interval);
+        }
+      } catch (err){
+        console.error("Polling error", err)
+
+        if (err.response && err.response.status === 403) {
+          setStatus("Access denied (403)");
+          clearInterval(interval);
+        }
+      }
+    }, 10000);
+  }
   
   return (
     <div className='space-y-4'>

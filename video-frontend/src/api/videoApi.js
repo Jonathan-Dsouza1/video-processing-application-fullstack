@@ -25,6 +25,14 @@ export const getAllVideos  = () => {
   return api.get("/upload");
 };
 
+export const getVideoByResolution = (videoId, resolution) => {
+  return api.get(`/upload/video/${videoId}/${resolution}`);
+}
+
+export const getVideoById = (videoId) => {
+  return api.get(`/upload/${videoId}`);
+}
+
 export const deleteVideo = (videoId) => {
   return api.delete(`/upload/${videoId}`);
 };

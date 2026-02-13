@@ -4,7 +4,6 @@ import com.example.video_backend.entities.Video;
 import com.example.video_backend.repositories.VideoRepository;
 import com.example.video_backend.services.VideoService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -31,10 +30,8 @@ public class VideoServiceImpl implements VideoService {
     }
 
     @Override
-    public List<Video> getAllByLatestFirst() {
-        return videoRepository.findAll(
-                Sort.by(Sort.Direction.DESC, "uploadedAt")
-        );
+    public List<Video> getReadyVideos() {
+        return videoRepository.findByStatusOrderByUploadedAtDesc("READY");
     }
 
     @Override

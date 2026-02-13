@@ -48,6 +48,7 @@ public class VideoController {
                     .contentType("video/mp4")
                     .filePath("uploads/final/" + processedFileName)
                     .uploadedAt(LocalDateTime.now())
+                    .status("PROCESSING")
                     .build();
 
             videoService.save(video);
@@ -79,14 +80,39 @@ public class VideoController {
                 .body(resource);
     }
 
+    @GetMapping("/video/{fileId}/{resolution}")
+    public ResponseEntity<Resource> streamByResolution(
+            @PathVariable String fileId,
+            @PathVariable String resolution
+    ) throws IOException {
+        String filePath = "uploads/final/" + fileId + "_" + resolution + ".mp4";
+
+        Path path = Paths.get(filePath);
+        Resource resource = new UrlResource(path.toUri());
+
+        if(!resource.exists()){
+            return ResponseEntity.notFound().build();
+        }
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.valueOf("video/mp4"))
+                .body(resource);
+    }
+
     @GetMapping
     public ResponseEntity<List<Video>> getAllVideos(){
-        List<Video> videos = videoService.getAllByLatestFirst();
+        List<Video> videos = videoService.getReadyVideos();
 
         if(videos.isEmpty()){
             return ResponseEntity.noContent().build();
         }
         return ResponseEntity.ok(videos);
+    }
+
+    @GetMapping("/{videoId}")
+    public ResponseEntity<Video> getVideoById(@PathVariable String videoId){
+        Video video = videoService.get(videoId);
+        return ResponseEntity.ok(video);
     }
 
     @DeleteMapping("/{videoId}")

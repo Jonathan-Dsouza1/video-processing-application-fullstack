@@ -1,6 +1,5 @@
 package com.example.video_backend.services;
 
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -12,17 +11,17 @@ public class VideoProcessingService {
 
         switch (resolution) {
             case "480p":
-                output = "uploads/final/" + fileId + "_480.mp4";
+                output = "uploads/final/" + fileId + "_480p.mp4";
                 scale = "854:480";
                 break;
 
             case "720p":
-                output = "uploads/final/" + fileId + "_720.mp4";
+                output = "uploads/final/" + fileId + "_720p.mp4";
                 scale = "1280:720";
                 break;
 
             case "1080p":
-                output = "uploads/final/" + fileId + "_1080.mp4";
+                output = "uploads/final/" + fileId + "_1080p.mp4";
                 scale = "1920:1080";
                 break;
 

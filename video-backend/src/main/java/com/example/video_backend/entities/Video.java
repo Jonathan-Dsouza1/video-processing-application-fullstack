@@ -28,4 +28,6 @@ public class Video {
     private LocalDateTime uploadedAt;
 
     private String filePath;
+
+    private String status;
 }

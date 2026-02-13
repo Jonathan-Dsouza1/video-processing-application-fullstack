@@ -11,7 +11,7 @@ public interface VideoService {
 
     Video get(String videoId);
 
-    List<Video> getAllByLatestFirst();
-
     void delete(String videoId);
+
+    List<Video> getReadyVideos();
 }
