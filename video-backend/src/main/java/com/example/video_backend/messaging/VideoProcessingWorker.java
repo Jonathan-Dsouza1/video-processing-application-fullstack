@@ -4,6 +4,7 @@ import com.example.video_backend.config.RabbitConfig;
 import com.example.video_backend.entities.Video;
 import com.example.video_backend.repositories.VideoRepository;
 import com.example.video_backend.services.VideoProcessingService;
+import com.example.video_backend.services.VideoStatusService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
@@ -18,6 +19,7 @@ public class VideoProcessingWorker {
 
     private final VideoProcessingService videoProcessingService;
     private final VideoRepository videoRepository;
+    private final VideoStatusService videoStatusService;
 
     @RabbitListener(
             queues = RabbitConfig.QUEUE,
@@ -30,6 +32,7 @@ public class VideoProcessingWorker {
                 task.getVideoId(),
                 task.getResolution()
         );
+        System.out.println("Resolution done: " + task.getResolution());
 
         checkAndMarkReady(task.getVideoId());
     }
@@ -38,25 +41,28 @@ public class VideoProcessingWorker {
         String baseDir = "uploads/final/";
         String[] resolutions = {"480p", "720p", "1080p"};
 
-        boolean allExist = true;
-
         for(String res : resolutions){
             Path path = Paths.get(baseDir + videoId + "_" + res + ".mp4");
-            if(!Files.exists(path)) {
-                allExist = false;
-                break;
+            boolean exists = Files.exists(path);
+            System.out.println(path.toAbsolutePath() + " exists=" + exists);
+            if(!exists) {
+                return;
             }
         }
 
-        if (allExist) {
-            Video video = videoRepository.findById(videoId)
-                    .orElseThrow();
-
-            if(!"READY".equals(video.getStatus())){
-                video.setStatus("READY");
-                videoRepository.save(video);
-                System.out.println("Video READY: " + videoId);
-            }
+        String currentStatus = videoStatusService.getStatus(videoId);
+        if("READY".equals(currentStatus)){
+            return;
         }
+        videoStatusService.setReady(videoId);
+        System.out.println("All resolutions found. Setting READY");
+
+        Video video = videoRepository.findById(videoId)
+                .orElseThrow();
+
+        video.setStatus("READY");
+        videoRepository.save(video);
+
+        System.out.println("Video READY: " + videoId);
     }
 }

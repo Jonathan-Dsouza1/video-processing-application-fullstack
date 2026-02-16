@@ -21,7 +21,7 @@ export function uploadChunk(chunk, index, total, fileId, selectedFile, onProgres
   });
 };
 
-export const getAllVideos  = () => {
+export const getAllVideos = () => {
   return api.get("/upload");
 };
 
@@ -29,10 +29,10 @@ export const getVideoByResolution = (videoId, resolution) => {
   return api.get(`/upload/video/${videoId}/${resolution}`);
 }
 
-export const getVideoById = (videoId) => {
-  return api.get(`/upload/${videoId}`);
-}
-
 export const deleteVideo = (videoId) => {
   return api.delete(`/upload/${videoId}`);
 };
+
+export const getStatus = (videoId) => {
+  return api.get(`/upload/status/${videoId}`);
+}

@@ -1,15 +1,20 @@
 package com.example.video_backend.services;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.*;
 import java.nio.file.*;
+import java.util.stream.Stream;
 
 @Service
+@RequiredArgsConstructor
 public class UploadService {
     private static final String TEMP_DIR = "uploads/tmp/";
     private static final String FINAL_DIR = "uploads/final/";
+
+    private final VideoStatusService videoStatusService;
 
     public String saveChunk(MultipartFile chunk, int index, int total, String fileId) {
         try {
@@ -23,12 +28,14 @@ public class UploadService {
                     chunkPath,
                     StandardCopyOption.REPLACE_EXISTING
             );
-
             // If last chunk -> merge
-            long uploadedChunks = Files.list(dir).count();
+            long uploadedChunks;
+            try (Stream<Path> files = Files.list(dir)){
+                uploadedChunks = files.count();
+            }
             if(uploadedChunks == total){
                 mergeChunks(fileId, total);
-
+                videoStatusService.setProcessing(fileId);
                 String processedFileName = fileId + ".mp4";
                 System.out.println("Video processing completed for " + fileId);
                 return processedFileName;

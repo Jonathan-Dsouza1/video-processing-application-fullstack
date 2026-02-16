@@ -5,6 +5,7 @@ import com.example.video_backend.entities.Video;
 import com.example.video_backend.messaging.VideoProcessingTask;
 import com.example.video_backend.services.UploadService;
 import com.example.video_backend.services.VideoService;
+import com.example.video_backend.services.VideoStatusService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.http.HttpStatus;
@@ -28,6 +29,7 @@ public class VideoController {
     private final UploadService uploadService;
     private final VideoService videoService;
     private final RabbitTemplate rabbitTemplate;
+    private final VideoStatusService videoStatusService;
 
     @PostMapping("/chunk")
     public ResponseEntity<?> uploadChunk(
@@ -43,7 +45,7 @@ public class VideoController {
         if(processedFileName != null){
             Video video = Video.builder()
                     .videoId(fileId)
-                    .title(title)
+                    .title(title.replace(".mp4", ""))
                     .storageName(processedFileName)
                     .contentType("video/mp4")
                     .filePath("uploads/final/" + processedFileName)
@@ -109,15 +111,20 @@ public class VideoController {
         return ResponseEntity.ok(videos);
     }
 
-    @GetMapping("/{videoId}")
-    public ResponseEntity<Video> getVideoById(@PathVariable String videoId){
-        Video video = videoService.get(videoId);
-        return ResponseEntity.ok(video);
-    }
-
     @DeleteMapping("/{videoId}")
     public ResponseEntity<Void> deleteVideo(@PathVariable String videoId){
         videoService.delete(videoId);
         return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/status/{videoId}")
+    public ResponseEntity<String> getStatus(@PathVariable String videoId){
+        String status = videoStatusService.getStatus(videoId);
+
+        if(status == null){
+            return ResponseEntity.notFound().build();
+        }
+
+        return ResponseEntity.ok(status);
     }
 }
