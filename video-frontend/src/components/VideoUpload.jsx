@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { getStatus, uploadChunk } from '../api/videoApi';
+import { useRef, useState } from 'react';
+import { getStatus, uploadChunk, getUploadedChunks } from '../api/videoApi';
 import VideoPlayer from './VideoPlayer';
 
 const CHUNK_SIZE = 10 * 1024 * 1024 // 10MB
@@ -9,6 +9,9 @@ export default function VideoUpload() {
   const [status, setStatus] = useState("");
   const [processedFileName, setProcessedFileName] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
+  const pauseRef = useRef(false);
 
   const handleFileSelect = (e) => {
     const file = e.target.files[0];
@@ -20,15 +23,38 @@ export default function VideoUpload() {
     setProcessedFileName(null);
   }
 
+  const handleResume = () => {
+    if (!selectedFile) return;
+
+    pauseRef.current = false;
+    setIsPaused(false);
+    setStatus("Resuming...");
+    handleUpload();
+  };
+
+
   const handleUpload = async () => {
     if(!selectedFile){
       alert("Please select a video first.");  
       return;
     }
+    pauseRef.current = false;
+    setIsPaused(false);
+    setIsUploading(true);
     
     const file = selectedFile;
     const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-    const fileId = crypto.randomUUID();
+    let fileId = localStorage.getItem("uploadFileId");
+
+    if(!fileId){
+      fileId = crypto.randomUUID();
+      localStorage.setItem("uploadFileId", fileId);
+      localStorage.removeItem("uploadItemId");
+      localStorage.removeItem("favorites");
+    }
+
+    const res = await getUploadedChunks(fileId);
+    const uploaded = new Set(res.data);
 
     setStatus("Uploading...");
     setProgress(0);
@@ -36,35 +62,59 @@ export default function VideoUpload() {
     let finalFileName = null;
 
     for(let i = 0; i < totalChunks; i++){
+      if(uploaded.has(i)){
+        continue;
+      }
+
+      // Pause check
+      if (pauseRef.current) {
+        console.log("Upload paused");
+        setStatus("Paused");
+        setIsUploading(false);
+        return;
+      }
+
       const start = i * CHUNK_SIZE;
       const end = Math.min(start + CHUNK_SIZE, file.size);
-      const chunk = file.slice(start, end);
+      const chunk = file.slice(start, end);   
 
-      const res = await uploadChunk(
-        chunk, 
-        i, 
-        totalChunks, 
-        fileId, 
-        selectedFile, 
-        (chunkPercent) => {
-          const overallPercent = Math.round(((i + chunkPercent / 100) / totalChunks) * 100);
-          setProgress(overallPercent);
+      try{
+        const res = await uploadChunk(
+          chunk, 
+          i, 
+          totalChunks, 
+          fileId, 
+          selectedFile, 
+          (chunkPercent) => {
+            const overallPercent = Math.round(((i + chunkPercent / 100) / totalChunks) * 100);
+            setProgress(overallPercent);
+          }
+        );
+  
+        if(
+          res?.data && 
+          typeof res.data === "string" && 
+          res.data.endsWith(".mp4")
+        ) {
+          finalFileName = res.data;
         }
-      );
-
-      if(
-        res?.data && 
-        typeof res.data === "string" && 
-        res.data.endsWith(".mp4")
-      ) {
-        finalFileName = res.data;
+        setProgress(Math.round(((i + 1) / totalChunks) * 100));
+      } catch (err){
+        console.log("Network error - auto paused");
+        pauseRef.current = true;
+        setIsPaused(true);
+        setIsUploading(false);
+        setStatus("Paused (network issue)");
+        return;
       }
-      setProgress(Math.round(((i + 1) / totalChunks) * 100));
-    }
+    }   
 
     if(finalFileName){
       setStatus("Processing...");
       pollUntilReady(fileId);
+      setIsUploading(false);
+      setIsPaused(false);
+      localStorage.removeItem("uploadFileId");
     }
   };
 
@@ -115,6 +165,27 @@ export default function VideoUpload() {
         >
           Upload
         </button>
+        
+        {isUploading ? (
+          <button
+            onClick={() => {
+              pauseRef.current = true;
+              setIsPaused(true);
+              setIsUploading(false);
+            }}
+            disabled={!isUploading}
+            className="bg-yellow-500 text-white px-4 py-2 rounded"
+          >
+            ⏸
+          </button>
+        ) : isPaused ? (
+          <button
+            onClick={handleResume}
+            className="bg-green-500 text-white px-4 py-2 rounded"
+          >
+            ▶
+          </button>
+        ) : null}
       </div>
       
       {status && (

@@ -36,3 +36,7 @@ export const deleteVideo = (videoId) => {
 export const getStatus = (videoId) => {
   return api.get(`/upload/status/${videoId}`);
 }
+
+export const getUploadedChunks = (videoId) => {
+  return api.get(`/upload/chunks/${videoId}`);
+} 

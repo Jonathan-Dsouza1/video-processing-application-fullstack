@@ -20,6 +20,7 @@ import java.io.IOException;
 import java.nio.file.*;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Stream;
 
 @RestController
 @RequestMapping("/upload")
@@ -64,6 +65,22 @@ public class VideoController {
                     .body(processedFileName);
         }
         return ResponseEntity.ok("Chunk received");
+    }
+
+    @GetMapping("/chunks/{fileId}")
+    public List<Integer> getUploadedChunks(@PathVariable String fileId) throws IOException {
+        Path dir = Paths.get("uploads/tmp", fileId);
+
+        if(!Files.exists(dir)){
+            return List.of();
+        }
+
+        try(Stream<Path> files = Files.list(dir)){
+            return files
+                    .map(p -> p.getFileName().toString().replace(".part", ""))
+                    .map(Integer::parseInt)
+                    .toList();
+        }
     }
 
     @GetMapping("/video/{fileName}")
