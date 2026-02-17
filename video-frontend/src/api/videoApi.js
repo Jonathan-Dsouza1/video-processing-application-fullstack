@@ -26,7 +26,7 @@ export const getAllVideos = () => {
 };
 
 export const getVideoByResolution = (videoId, resolution) => {
-  return api.get(`/upload/video/${videoId}/${resolution}`);
+  return `http://localhost:8080/upload/video/${videoId}/${resolution}`;
 }
 
 export const deleteVideo = (videoId) => {

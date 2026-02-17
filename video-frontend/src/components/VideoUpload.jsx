@@ -5,210 +5,260 @@ import VideoPlayer from './VideoPlayer';
 const CHUNK_SIZE = 10 * 1024 * 1024 // 10MB
 
 export default function VideoUpload() {
-  const [progress, setProgress] = useState(0);
-  const [status, setStatus] = useState("");
-  const [processedFileName, setProcessedFileName] = useState(null);
-  const [selectedFile, setSelectedFile] = useState(null);
+  const [queue, setQueue] = useState([]);
+  const [currentIndex, setCurrentIndex] = useState(-1);
   const [isUploading, setIsUploading] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const pauseRef = useRef(false);
 
   const handleFileSelect = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+    const files = Array.from(e.target.files);
+    if (!files) return;
 
-    setSelectedFile(file);
-    setProgress(0);
-    setStatus("");
-    setProcessedFileName(null);
+    const newItems = files.map(file =>({
+      id: crypto.randomUUID(),
+      file,
+      progress: 0,
+      status: "STAGED",
+      processedFileName: null
+    }));
+
+    setQueue(prev => [...prev, ...newItems]);
   }
 
   const handleResume = () => {
-    if (!selectedFile) return;
+    if (queue.length === 0) return;
 
     pauseRef.current = false;
     setIsPaused(false);
-    setStatus("Resuming...");
     handleUpload();
   };
 
+  const uploadSingleFile = async (item, index) => {
+    const file = item.file;
 
-  const handleUpload = async () => {
-    if(!selectedFile){
-      alert("Please select a video first.");  
-      return;
-    }
-    pauseRef.current = false;
-    setIsPaused(false);
-    setIsUploading(true);
-    
-    const file = selectedFile;
     const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-    let fileId = localStorage.getItem("uploadFileId");
-
-    if(!fileId){
-      fileId = crypto.randomUUID();
-      localStorage.setItem("uploadFileId", fileId);
-      localStorage.removeItem("uploadItemId");
-      localStorage.removeItem("favorites");
-    }
+    let fileId = item.id;
 
     const res = await getUploadedChunks(fileId);
     const uploaded = new Set(res.data);
 
-    setStatus("Uploading...");
-    setProgress(0);
+    updateQueue(index, { status: "Uploading", progress: 0 });
 
     let finalFileName = null;
 
     for(let i = 0; i < totalChunks; i++){
-      if(uploaded.has(i)){
-        continue;
-      }
+      if(uploaded.has(i)) continue;
 
-      // Pause check
-      if (pauseRef.current) {
-        console.log("Upload paused");
-        setStatus("Paused");
-        setIsUploading(false);
-        return;
+      if(pauseRef.current){
+        updateQueue(index, { status: "Paused" });
+        return false;
       }
 
       const start = i * CHUNK_SIZE;
       const end = Math.min(start + CHUNK_SIZE, file.size);
-      const chunk = file.slice(start, end);   
+      const chunk = file.slice(start, end);
 
-      try{
+      try {
         const res = await uploadChunk(
-          chunk, 
-          i, 
-          totalChunks, 
-          fileId, 
-          selectedFile, 
+          chunk,
+          i,
+          totalChunks,
+          fileId,
+          file,
           (chunkPercent) => {
-            const overallPercent = Math.round(((i + chunkPercent / 100) / totalChunks) * 100);
-            setProgress(overallPercent);
+            const overallPercent = Math.round(
+              ((i + chunkPercent / 100) / totalChunks) * 100
+            );
+            updateQueue(index, { progress: overallPercent });
           }
         );
-  
-        if(
-          res?.data && 
-          typeof res.data === "string" && 
-          res.data.endsWith(".mp4")
-        ) {
+
+        if(typeof res.data === "string" && res.data.endsWith(".mp4")) {
           finalFileName = res.data;
         }
-        setProgress(Math.round(((i + 1) / totalChunks) * 100));
-      } catch (err){
-        console.log("Network error - auto paused");
+      } catch {
         pauseRef.current = true;
         setIsPaused(true);
         setIsUploading(false);
-        setStatus("Paused (network issue)");
-        return;
+        
+        updateQueue(index, { status: "Paused (Network Issue)" });
+        return false;
       }
-    }   
-
-    if(finalFileName){
-      setStatus("Processing...");
-      pollUntilReady(fileId);
-      setIsUploading(false);
-      setIsPaused(false);
-      localStorage.removeItem("uploadFileId");
     }
+    
+    if(finalFileName){
+      updateQueue(index, { status: "Processing" });
+      await pollUntilReady(fileId, index);
+    }
+
+    return true;
+  }
+
+  const updateQueue = (index, changes) => {
+    setQueue(prev =>
+      prev.map((item, i) => 
+        i == index ? { ...item, ...changes} : item
+      )
+    );
   };
 
-  const pollUntilReady = (videoId) => {
-    const interval = setInterval(async () =>{
-      try {
-        const res = await getStatus(videoId);
+  const handleUpload = async () => {
+    if(queue.length === 0){
+      alert("Please select videos first.");
+      return;
+    }
 
-        const status = res.data.trim();
+    if(isUploading) return;
 
-        if(status === "READY"){
-          console.log("READY detected")
-          setProcessedFileName(videoId + ".mp4");
-          setStatus("Ready");
-          clearInterval(interval);
+    pauseRef.current = false;
+    setIsPaused(false);
+    setIsUploading(true);
+
+    for(let i = 0; i < queue.length; i++){
+      if(pauseRef.current) break;
+
+      const item = queue[i];
+
+      if (
+        item.status !== "STAGED" &&
+        item.status !== "Paused" &&
+        item.status !== "Paused (Network Issue)"
+      ) continue;
+
+      const success = await uploadSingleFile(item, i);
+
+      if(!success) break;
+    }
+
+    setIsUploading(false);
+  };
+
+  const pollUntilReady = (videoId, index) => {
+    return new Promise((resolve) => {
+      const interval = setInterval(async () =>{
+        try {
+          const res = await getStatus(videoId);
+  
+          const status = res.data.trim();
+  
+          if(status === "READY"){
+            updateQueue(index, {
+              status: "Ready",
+              processedFileName: videoId + ".mp4"
+            });
+            clearInterval(interval);
+            resolve();
+          }
+        } catch (err){
+          console.error("Polling error", err);
+          console.error("Status: ", err.response?.status);
+          console.error("Data: ", err.response?.data);
+  
+          if (err.response && err.response.status === 403) {
+            setStatus("Access denied (403)");
+            clearInterval(interval);
+          }
+  
+          if (err.response && err.response.status === 404){
+            console.log("Status not found yet.");
+          }
         }
-      } catch (err){
-        console.error("Polling error", err);
-        console.error("Status: ", err.response?.status);
-        console.error("Data: ", err.response?.data);
-
-        if (err.response && err.response.status === 403) {
-          setStatus("Access denied (403)");
-          clearInterval(interval);
-        }
-
-        if (err.response && err.response.status === 404){
-          console.log("Status not found yet.");
-        }
-      }
-    }, 3000);
+      }, 3000);
+    });
   };
   
   return (
     <div className='space-y-4'>
-      <div className='flex items-center gap-4'>
+      <div className='flex items-center gap-3'>
         <input 
           type="file" 
-          accept="video/*" 
+          accept="video/*"
+          multiple
           onChange={handleFileSelect}
           className='border p-2 rounded'
         />
 
         <button 
           onClick={handleUpload} 
-          disabled={!selectedFile || status === "Uploading..."}
+          disabled={queue.length === 0 || isUploading}
           className='bg-blue-500 text-white px-4 py-2 rounded disabled:bg-gray-400'
         >
-          Upload
+          Start Upload
         </button>
-        
-        {isUploading ? (
+
+        {isUploading && (
           <button
             onClick={() => {
               pauseRef.current = true;
               setIsPaused(true);
               setIsUploading(false);
             }}
-            disabled={!isUploading}
             className="bg-yellow-500 text-white px-4 py-2 rounded"
           >
-            ⏸
+            Pause
           </button>
-        ) : isPaused ? (
+        )}
+
+        {!isUploading && isPaused && (
           <button
             onClick={handleResume}
             className="bg-green-500 text-white px-4 py-2 rounded"
           >
-            ▶
+            Resume
           </button>
-        ) : null}
+        )}
       </div>
-      
-      {status && (
-        <div className='bg-gray-100 p-4 rounded'>
-          <p className='font-medium'>Status: {status}</p>
 
-          <div className='w-full bg-gray-300 rounded h-4 mt-2'>
-            <div 
-              className='bg-blue-500 h-4 rounded'
-              style={{ width: `${progress}%` }}
-            />
+      <div className='space-y-3'>
+        {queue.map((item, index) => (
+          <div
+            key={item.id}
+            className={`p-4 rounded border
+              ${index === currentIndex ? "border-blue-500 bg-blue-50" : "border-gray-200 bg-gray-100"}`}
+          >
+            <div className='flex justify-between items-center'>
+              <div>
+                <p className='font-medium'>{item.file.name}</p>
+                <p className=' text-sm text-gray-600'>
+                  Status: {item.status}
+                </p>
+              </div>
+
+              {item.status === "STAGED" && (
+                <button
+                onClick={() => 
+                  setQueue(prev => prev.filter((_, i) => i !== index))
+                }
+                className='text-red-500 text-sm'
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+
+            <div className='w-full bg-gray-300 rounded h-3 mt-3'>
+              <div
+                className={`h-3 rounded ${
+                  item.status === "Ready"
+                  ? "bg-green-500"
+                  : item.status === "Paused"
+                  ? "bg-yellow-500"
+                  : "bg-blue-500"
+                }`}
+                style={{ width: `${item.progress}%` }}
+              />
+            </div>
+
+            <p className='text-xs mt-1'>{item.progress}%</p>
+            {item.processedFileName &&  (
+              <div className='mt-3'>
+                <VideoPlayer fileName={item.processedFileName} />
+              </div>
+            )}
           </div>
-
-          <p className='text-sm mt-1'>{progress}%</p>
-        </div>
-      )}
-
-      {processedFileName && (
-        <div className='mt-4'>
-          <h3 className='font-semibold mb-2'>{selectedFile?.name}</h3>
-          <VideoPlayer fileName = {processedFileName} />
-        </div>
-      )}
+        ))}
+      </div>
     </div>
   );
 }
