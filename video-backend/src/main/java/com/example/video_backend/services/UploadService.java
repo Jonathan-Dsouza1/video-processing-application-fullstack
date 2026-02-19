@@ -15,6 +15,7 @@ public class UploadService {
     private static final String FINAL_DIR = "uploads/final/";
 
     private final VideoStatusService videoStatusService;
+    private final MinioService minioService;
 
     public String saveChunk(MultipartFile chunk, int index, int total, String fileId) {
         try {
@@ -28,16 +29,24 @@ public class UploadService {
                     chunkPath,
                     StandardCopyOption.REPLACE_EXISTING
             );
+
             // If last chunk -> merge
             long uploadedChunks;
-            try (Stream<Path> files = Files.list(dir)){
+            try (Stream<Path> files = Files.list(dir)) {
                 uploadedChunks = files.count();
             }
             if(uploadedChunks == total){
-                mergeChunks(fileId, total);
+                Path mergedFile = mergeChunks(fileId, total);
+
+                String objectName = fileId + "/original.mp4";
+                minioService.uploadFile(mergedFile, objectName, "video/mp4");
+
+                System.out.println("Deleted: " + mergedFile);
+                Files.deleteIfExists(mergedFile);
+
                 videoStatusService.setProcessing(fileId);
                 String processedFileName = fileId + ".mp4";
-                System.out.println("Video processing completed for " + fileId);
+                System.out.println("Uploaded to MinIO: " + objectName);
                 return processedFileName;
             }
         } catch (IOException e){
@@ -46,7 +55,7 @@ public class UploadService {
         return null;
     }
 
-    private void mergeChunks(String fileId, int total) throws IOException {
+    private Path mergeChunks(String fileId, int total) throws IOException {
         Path tempDir = Paths.get(TEMP_DIR, fileId);
         Path finalFile = Paths.get(FINAL_DIR + fileId + ".mp4");
 
@@ -63,5 +72,7 @@ public class UploadService {
             Files.deleteIfExists(tempDir.resolve(i + ".part"));
         }
         Files.deleteIfExists(tempDir);
+
+        return finalFile;
     }
 }

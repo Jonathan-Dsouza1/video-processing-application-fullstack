@@ -3,6 +3,7 @@ package com.example.video_backend.messaging;
 import com.example.video_backend.config.RabbitConfig;
 import com.example.video_backend.entities.Video;
 import com.example.video_backend.repositories.VideoRepository;
+import com.example.video_backend.services.MinioService;
 import com.example.video_backend.services.VideoProcessingService;
 import com.example.video_backend.services.VideoStatusService;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +21,7 @@ public class VideoProcessingWorker {
     private final VideoProcessingService videoProcessingService;
     private final VideoRepository videoRepository;
     private final VideoStatusService videoStatusService;
+    private final MinioService minioService;
 
     @RabbitListener(
             queues = RabbitConfig.QUEUE,
@@ -38,13 +40,14 @@ public class VideoProcessingWorker {
     }
 
     private void checkAndMarkReady(String videoId){
-        String baseDir = "uploads/final/";
         String[] resolutions = {"480p", "720p", "1080p"};
 
         for(String res : resolutions){
-            Path path = Paths.get(baseDir + videoId + "_" + res + ".mp4");
-            boolean exists = Files.exists(path);
-            System.out.println(path.toAbsolutePath() + " exists=" + exists);
+            String objectName = videoId + "_" + res + ".mp4";
+            boolean exists = minioService.objectExists(objectName);
+
+            System.out.println("Checking: " + objectName + " -> " + exists);
+
             if(!exists) {
                 return;
             }
@@ -54,6 +57,7 @@ public class VideoProcessingWorker {
         if("READY".equals(currentStatus)){
             return;
         }
+
         videoStatusService.setReady(videoId);
         System.out.println("All resolutions found. Setting READY");
 
