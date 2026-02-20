@@ -2,6 +2,7 @@ package com.example.video_backend.services.impl;
 
 import com.example.video_backend.entities.Video;
 import com.example.video_backend.repositories.VideoRepository;
+import com.example.video_backend.services.MinioService;
 import com.example.video_backend.services.VideoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -17,6 +18,7 @@ import java.util.List;
 public class VideoServiceImpl implements VideoService {
 
     private final VideoRepository videoRepository;
+    private final MinioService minioService;
 
     @Override
     public Video save(Video video) {
@@ -44,23 +46,13 @@ public class VideoServiceImpl implements VideoService {
                 .orElseThrow(() -> new RuntimeException("Video not found " + videoId));
 
         try {
-            Path originalPath = Paths.get(video.getFilePath());
+            String prefix = videoId + "/";
 
-            Files.deleteIfExists(originalPath);
+            minioService.deleteFolder(prefix);
 
-            String fileName = video.getStorageName();
-            String baseName = fileName.substring(0, fileName.lastIndexOf("."));
-
-            Path directory = originalPath.getParent();
-
-            String[] resolutions = { "480p", "720p", "1080p" };
-
-            for(String res : resolutions){
-                Path resPath = directory.resolve(baseName + "_" + res + ".mp4");
-                Files.deleteIfExists(resPath);
-            }
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to delete video files", e);
+            System.out.println("Delete video from MinIO " + videoId);
+        } catch (   Exception e) {
+            throw new RuntimeException("Failed to delete video from MinIO", e);
         }
 
         videoRepository.deleteById(videoId);

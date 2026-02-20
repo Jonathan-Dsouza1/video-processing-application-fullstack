@@ -25,7 +25,7 @@ export default function VideoHistory() {
   };
 
   const handleOpenVideo = (video) => {
-    navigate(`/watch/${video.storageName}`);
+    navigate(`/watch/${video.videoId}`);
   }
 
   if(videos.length === 0){
@@ -43,7 +43,7 @@ export default function VideoHistory() {
             className="cursor-pointer"
             onClick={() => handleOpenVideo(video)}
           >
-            <VideoDisplay fileName={video.storageName} />
+            <VideoDisplay videoId={video.videoId} />
           </div>
 
           <div className="p-3">

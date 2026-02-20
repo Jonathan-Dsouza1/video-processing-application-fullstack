@@ -253,7 +253,7 @@ export default function VideoUpload() {
             <p className='text-xs mt-1'>{item.progress}%</p>
             {item.processedFileName &&  (
               <div className='mt-3'>
-                <VideoPlayer fileName={item.processedFileName} />
+                <VideoPlayer videoId={item.fileId} />
               </div>
             )}
           </div>

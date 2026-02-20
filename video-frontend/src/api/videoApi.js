@@ -25,8 +25,8 @@ export const getAllVideos = () => {
   return api.get("/upload");
 };
 
-export const getVideoByResolution = (videoId, resolution) => {
-  return `http://localhost:8080/upload/video/${videoId}/${resolution}`;
+export const getHlsUrl = (videoId) => {
+  return `http://localhost:9000/videos/${videoId}/master.m3u8`;
 }
 
 export const deleteVideo = (videoId) => {

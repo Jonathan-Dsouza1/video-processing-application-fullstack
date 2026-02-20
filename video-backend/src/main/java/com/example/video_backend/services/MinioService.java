@@ -1,6 +1,7 @@
 package com.example.video_backend.services;
 
 import io.minio.*;
+import io.minio.messages.Item;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -43,8 +44,13 @@ public class MinioService {
                             build()
             );
             return true;
-        } catch (Exception e){
-            return false;
+        } catch (io.minio.errors.ErrorResponseException e){
+            if("NoSuchKey".equals(e.errorResponse().code())){
+                return false;
+            }
+            throw new RuntimeException("MinIO error while checking object: " + objectName, e);
+        } catch (Exception e) {
+            throw new RuntimeException("MinIO connection error", e);
         }
     }
 
@@ -63,6 +69,33 @@ public class MinioService {
             return tempFile;
         } catch (Exception e){
             throw new RuntimeException("Failed to download from MinIO", e);
+        }
+    }
+
+    public void deleteFolder(String prefix){
+        try {
+            Iterable<Result<Item>> objects = minioClient.listObjects(
+                    ListObjectsArgs.builder()
+                            .bucket(bucket)
+                            .prefix(prefix)
+                            .recursive(true)
+                            .build()
+            );
+
+            for(Result<Item> result : objects){
+                String objectName = result.get().objectName();
+
+                minioClient.removeObject(
+                        RemoveObjectArgs.builder()
+                                .bucket(bucket)
+                                .object(objectName)
+                                .build()
+                );
+
+                System.out.println("Deleted from MinIO: " + objectName);
+            }
+        } catch (Exception e){
+            throw new RuntimeException("Failed to delete MinIO folder: " + prefix, e);
         }
     }
 }

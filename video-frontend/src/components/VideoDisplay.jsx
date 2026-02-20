@@ -1,7 +1,7 @@
-export default function VideoDisplay({fileName}) {
-  if(!fileName) return null;
+export default function VideoDisplay({videoId}) {
+  if(!videoId) return null;
 
-  const thumbnailUrl = `http://localhost:8080/upload/video/${fileName}`;
+  const thumbnailUrl = `http://localhost:9000/videos/${videoId}/master.m3u8`;
 
   return (
       <div className='w-full aspect-video bg-black rounded overflow-hidden'>
