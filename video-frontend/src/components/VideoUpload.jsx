@@ -45,8 +45,6 @@ export default function VideoUpload() {
 
     updateQueue(index, { status: "Uploading", progress: 0 });
 
-    let finalFileName = null;
-
     for(let i = 0; i < totalChunks; i++){
       if(uploaded.has(i)) continue;
 
@@ -74,9 +72,6 @@ export default function VideoUpload() {
           }
         );
 
-        if(typeof res.data === "string" && res.data.endsWith(".mp4")) {
-          finalFileName = res.data;
-        }
       } catch {
         pauseRef.current = true;
         setIsPaused(true);
@@ -87,10 +82,8 @@ export default function VideoUpload() {
       }
     }
     
-    if(finalFileName){
-      updateQueue(index, { status: "Processing" });
-      await pollUntilReady(fileId, index);
-    }
+    updateQueue(index, { status: "Processing" });
+    await pollUntilReady(fileId, index);
 
     return true;
   }
@@ -145,7 +138,7 @@ export default function VideoUpload() {
           if(status === "READY"){
             updateQueue(index, {
               status: "Ready",
-              processedFileName: videoId + ".mp4"
+              videoId: videoId
             });
             clearInterval(interval);
             resolve();
@@ -251,9 +244,9 @@ export default function VideoUpload() {
             </div>
 
             <p className='text-xs mt-1'>{item.progress}%</p>
-            {item.processedFileName &&  (
+            {item.videoId &&  (
               <div className='mt-3'>
-                <VideoPlayer videoId={item.fileId} />
+                <VideoPlayer videoId={item.videoId} />
               </div>
             )}
           </div>

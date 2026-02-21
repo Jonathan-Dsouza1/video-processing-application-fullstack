@@ -70,6 +70,7 @@ public class VideoProcessingWorker {
         videoRepository.save(video);
 
         System.out.println("Video READY: " + videoId);
+        videoStatusService.delete(videoId);
     }
 
     private void createMasterPlaylist(String videoId){

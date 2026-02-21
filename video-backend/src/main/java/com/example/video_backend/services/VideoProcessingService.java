@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
@@ -37,31 +38,38 @@ public class VideoProcessingService {
             }
 
             Path outputDir = Paths.get("uploads/tmp", fileId, resolution);
-            Files.createDirectories(outputDir.getParent());
+            Files.createDirectories(outputDir);
 
             runFfmpeg(inputFile.toString(), outputDir, scale);
 
             System.out.println(resolution + " HLS created for " + fileId);
 
+            boolean uploadSuccess = true;
+
             // Upload entire folder to MinIO
-            Files.walk(outputDir)
-                    .filter(Files::isRegularFile)
-                    .forEach(path -> {
-                        try {
-                            String relative = outputDir.relativize(path)
-                                    .toString()
-                                    .replace("\\", "/");
+            try (Stream<Path> paths = Files.walk(outputDir)){
+                for(Path path : paths.filter(Files::isRegularFile).toList()) {
+                    try {
+                        String relative = outputDir.relativize(path)
+                                .toString()
+                                .replace("\\", "/");
 
-                            String objectKey = fileId + "/" + resolution + "/" + relative;
+                        String objectKey = fileId + "/" + resolution + "/" + relative;
 
-                            minioService.uploadFile(path, objectKey, getContentType(path));
+                        minioService.uploadFile(path, objectKey, getContentType(path));
 
-                            System.out.println("Uploaded " + objectKey);
-                            deleteDirectory(outputDir);
-                        } catch (Exception e){
-                            e.printStackTrace();
-                        }
-                     });
+                        System.out.println("Uploaded " + objectKey);
+                    } catch (Exception e) {
+                        uploadSuccess = false;
+                        throw new RuntimeException(e);
+                    }
+                }
+            }
+            if(uploadSuccess){
+                deleteDirectory(outputDir);
+            } else {
+                System.out.println("Upload failed, keeping local files for debugging");
+            }
         } catch (Exception e){
             e.printStackTrace();
         } finally {

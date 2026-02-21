@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { getAllVideos, deleteVideo } from "../api/videoApi";
 import { useNavigate } from "react-router-dom";
-import VideoPlayer from "./VideoPlayer";
 import VideoDisplay from "./VideoDisplay";
 
 export default function VideoHistory() {
