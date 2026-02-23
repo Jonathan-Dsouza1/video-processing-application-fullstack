@@ -21,13 +21,7 @@ public class Video {
 
     private String title;
 
-    private String storageName;
-
-    private String contentType;
+    private String status;
 
     private LocalDateTime uploadedAt;
-
-    private String filePath;
-
-    private String status;
 }

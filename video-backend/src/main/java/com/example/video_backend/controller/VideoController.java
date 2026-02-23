@@ -41,15 +41,12 @@ public class VideoController {
             @RequestParam String title
     ) {
         System.out.println("Received chunk " + index + " of " + fileId);
-        String processedFileName = uploadService.saveChunk(chunk, index, total, fileId);
+        boolean isLastChunk = uploadService.saveChunk(chunk, index, total, fileId);
 
-        if(processedFileName != null){
+        if(isLastChunk){
             Video video = Video.builder()
                     .videoId(fileId)
                     .title(title.replace(".mp4", ""))
-                    .storageName(processedFileName)
-                    .contentType("video/mp4")
-                    .filePath("uploads/final/" + processedFileName)
                     .uploadedAt(LocalDateTime.now())
                     .status("PROCESSING")
                     .build();
@@ -62,7 +59,7 @@ public class VideoController {
 
             return ResponseEntity
                     .status(HttpStatus.CREATED)
-                    .body(processedFileName);
+                    .body("Upload complete, processing started");
         }
         return ResponseEntity.ok("Chunk received");
     }

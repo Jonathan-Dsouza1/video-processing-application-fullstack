@@ -17,7 +17,7 @@ public class UploadService {
     private final VideoStatusService videoStatusService;
     private final MinioService minioService;
 
-    public String saveChunk(MultipartFile chunk, int index, int total, String fileId) {
+    public boolean saveChunk(MultipartFile chunk, int index, int total, String fileId) {
         try {
             Path dir = Paths.get(TEMP_DIR + fileId);
             Files.createDirectories(dir);
@@ -45,14 +45,14 @@ public class UploadService {
                 Files.deleteIfExists(mergedFile);
 
                 videoStatusService.setProcessing(fileId);
-                String processedFileName = fileId + ".mp4";
+
                 System.out.println("Uploaded to MinIO: " + objectName);
-                return processedFileName;
+                return true;
             }
         } catch (IOException e){
             throw new RuntimeException("Chunk upload failed", e);
         }
-        return null;
+        return false;
     }
 
     private Path mergeChunks(String fileId, int total) throws IOException {
