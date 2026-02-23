@@ -16,8 +16,10 @@ export default function VideoPlayer({ videoId }) {
     const video = videoRef.current;
     if(!video) return;
 
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    
     // Safari native HLS
-    if(video.canPlayType("application/vnd.apple.mpegurl")){
+    if(isSafari && video.canPlayType("application/vnd.apple.mpegurl")){
       video.src = url;
       return;
     }
@@ -30,7 +32,7 @@ export default function VideoPlayer({ videoId }) {
       hls.attachMedia(video);
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        const availableLevels = hls.levels.map((levels, index) => ({
+        const availableLevels = hls.levels.map((level, index) => ({
           index,
           label: `${level.height}p`,
         }));
@@ -44,7 +46,7 @@ export default function VideoPlayer({ videoId }) {
     }
   }, [url]);
 
-  const changeQuality = () => {
+  const changeQuality = (levelIndex, label) => {
     const hls = hlsRef.current;
     if(!hls) return;
 
@@ -55,7 +57,7 @@ export default function VideoPlayer({ videoId }) {
   
   return (
     <div className="relative w-[720px]">
-      <video key={videoRef} className="w-[720px] rounded" ref={videoRef} controls />
+      <video key={videoId} className="w-[720px] rounded" ref={videoRef} controls />
 
       <div className="absolute bottom-3 right-3">
         <button

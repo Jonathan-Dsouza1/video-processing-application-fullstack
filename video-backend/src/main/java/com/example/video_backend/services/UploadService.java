@@ -6,6 +6,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.*;
 import java.nio.file.*;
+import java.util.Set;
 import java.util.stream.Stream;
 
 @Service
@@ -16,9 +17,25 @@ public class UploadService {
 
     private final VideoStatusService videoStatusService;
     private final MinioService minioService;
+    private static final Set<String> ALLOWED_EXTENSIONS =
+            Set.of("mp4", "mov", "mkv", "avi", "webm");
 
-    public boolean saveChunk(MultipartFile chunk, int index, int total, String fileId) {
+    public boolean saveChunk(
+            MultipartFile chunk,
+            int index,
+            int total,
+            String fileId,
+            String title
+    ) {
         try {
+            String extension = getExtension(title);
+
+            if(index == 0){
+                if(!ALLOWED_EXTENSIONS.contains(extension)){
+                    throw new RuntimeException("Unsupported video format: " + extension);
+                }
+            }
+
             Path dir = Paths.get(TEMP_DIR + fileId);
             Files.createDirectories(dir);
 
@@ -36,10 +53,15 @@ public class UploadService {
                 uploadedChunks = files.count();
             }
             if(uploadedChunks == total){
-                Path mergedFile = mergeChunks(fileId, total);
+                Path mergedFile = mergeChunks(fileId, total, extension);
 
-                String objectName = fileId + "/original.mp4";
-                minioService.uploadFile(mergedFile, objectName, "video/mp4");
+                String objectName = fileId + "/original." + extension;
+                String contentType = Files.probeContentType(mergedFile);
+                if(contentType == null){
+                    contentType = "video/" + extension;
+                }
+
+                minioService.uploadFile(mergedFile, objectName, contentType);
 
                 System.out.println("Deleted: " + mergedFile);
                 Files.deleteIfExists(mergedFile);
@@ -55,9 +77,9 @@ public class UploadService {
         return false;
     }
 
-    private Path mergeChunks(String fileId, int total) throws IOException {
+    private Path mergeChunks(String fileId, int total, String extension) throws IOException {
         Path tempDir = Paths.get(TEMP_DIR, fileId);
-        Path finalFile = Paths.get(FINAL_DIR + fileId + ".mp4");
+        Path finalFile = Paths.get(FINAL_DIR + fileId + "." + extension);
 
         Files.createDirectories(finalFile.getParent());
 
@@ -74,5 +96,11 @@ public class UploadService {
         Files.deleteIfExists(tempDir);
 
         return finalFile;
+    }
+
+    private String getExtension(String fileName) {
+        int dot = fileName.lastIndexOf(".");
+        if (dot == -1) return "";
+        return fileName.substring(dot + 1).toLowerCase();
     }
 }

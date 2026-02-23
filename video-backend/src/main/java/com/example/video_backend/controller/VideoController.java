@@ -40,8 +40,9 @@ public class VideoController {
             @RequestParam String fileId,
             @RequestParam String title
     ) {
-        System.out.println("Received chunk " + index + " of " + fileId);
-        boolean isLastChunk = uploadService.saveChunk(chunk, index, total, fileId);
+        System.out.println("Received chunk " + index + " of " + title);
+
+        boolean isLastChunk = uploadService.saveChunk(chunk, index, total, fileId, title);
 
         if(isLastChunk){
             Video video = Video.builder()
@@ -53,9 +54,10 @@ public class VideoController {
 
             videoService.save(video);
 
-            rabbitTemplate.convertAndSend(RabbitConfig.QUEUE,  new VideoProcessingTask(fileId, "480p"));
-            rabbitTemplate.convertAndSend(RabbitConfig.QUEUE,  new VideoProcessingTask(fileId, "720p"));
-            rabbitTemplate.convertAndSend(RabbitConfig.QUEUE,  new VideoProcessingTask(fileId, "1080p"));
+            rabbitTemplate.convertAndSend(
+                    RabbitConfig.QUEUE,
+                    new VideoProcessingTask(fileId)
+            );
 
             return ResponseEntity
                     .status(HttpStatus.CREATED)

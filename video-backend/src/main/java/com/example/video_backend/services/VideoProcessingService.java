@@ -7,76 +7,60 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.stream.Stream;
 
 @Service
 @RequiredArgsConstructor
 public class VideoProcessingService {
     private final MinioService minioService;
 
-    public void processResolution(String fileId, String resolution) {
+    public void processAllResolutions(String videoId) {
 
         Path inputFile = null;
 
         try{
-            String objectName = fileId + "/original.mp4";
-            inputFile = minioService.downloadFile(objectName, fileId);
+            inputFile = minioService.downloadFile(
+                    videoId + "/original.mp4",
+                    videoId
+            );
 
-            String scale;
-            switch (resolution) {
-                case "480p":
-                    scale = "854:480";
-                    break;
-                case "720p":
-                    scale = "1280:720";
-                    break;
-                case "1080p":
-                    scale = "1920:1080";
-                    break;
-                default:
-                    throw new IllegalArgumentException("Unknown resolution " + resolution);
-            }
+            processHls(videoId, inputFile, "480p", "854:480");
+            processHls(videoId, inputFile, "720p", "1280:720");
+            processHls(videoId, inputFile, "1080p", "1920:1080");
 
-            Path outputDir = Paths.get("uploads/tmp", fileId, resolution);
-            Files.createDirectories(outputDir);
-
-            runFfmpeg(inputFile.toString(), outputDir, scale);
-
-            System.out.println(resolution + " HLS created for " + fileId);
-
-            boolean uploadSuccess = true;
-
-            // Upload entire folder to MinIO
-            try (Stream<Path> paths = Files.walk(outputDir)){
-                for(Path path : paths.filter(Files::isRegularFile).toList()) {
-                    try {
-                        String relative = outputDir.relativize(path)
-                                .toString()
-                                .replace("\\", "/");
-
-                        String objectKey = fileId + "/" + resolution + "/" + relative;
-
-                        minioService.uploadFile(path, objectKey, getContentType(path));
-
-                        System.out.println("Uploaded " + objectKey);
-                    } catch (Exception e) {
-                        uploadSuccess = false;
-                        throw new RuntimeException(e);
-                    }
-                }
-            }
-            if(uploadSuccess){
-                deleteDirectory(outputDir);
-            } else {
-                System.out.println("Upload failed, keeping local files for debugging");
-            }
+            createMasterPlaylist(videoId);
         } catch (Exception e){
             e.printStackTrace();
         } finally {
             try {
                 if(inputFile != null) Files.deleteIfExists(inputFile);
+                Path TmpDir = Paths.get("uploads/tmp", videoId);
+                deleteDirectory(TmpDir);
             } catch (Exception ignored) {}
         }
+    }
+
+    private void processHls(String videoId, Path inputFile, String resolution, String scale) throws Exception {
+        Path outputDir = Paths.get("uploads/tmp", videoId, resolution);
+        Files.createDirectories(outputDir);
+
+        runFfmpeg(inputFile.toString(), outputDir, scale);
+
+        Files.walk(outputDir)
+                .filter(Files::isRegularFile)
+                .forEach(path -> {
+                    try {
+                        String relative = outputDir.relativize(path)
+                                .toString()
+                                .replace("\\", "/");
+
+                        String objectKey = videoId + "/" + resolution + "/" + relative;
+
+                        minioService.uploadFile(path, objectKey, getContentType(path));
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+        deleteDirectory(outputDir.getParent());
     }
 
     private void runFfmpeg(String input, Path outputDir, String scale) throws Exception {
@@ -106,6 +90,32 @@ public class VideoProcessingService {
         int exitCode = process.waitFor();
 
         System.out.println("HLS finished for " + outputDir + " with code: " + exitCode);
+    }
+
+    private void createMasterPlaylist(String videoId) throws Exception  {
+        Path master = Paths.get("uploads/tmp", videoId, "master.m3u8");
+        Files.createDirectories(master.getParent());
+
+        String content =
+                    "#EXTM3U\n" +
+                    "#EXT-X-STREAM-INF:BANDWIDTH=2800000,RESOLUTION=1920x1080\n" +
+                    "1080p/index.m3u8\n" +
+                    "#EXT-X-STREAM-INF:BANDWIDTH=1400000,RESOLUTION=1280x720\n" +
+                    "720p/index.m3u8\n" +
+                    "#EXT-X-STREAM-INF:BANDWIDTH=800000,RESOLUTION=854x480\n" +
+                    "480p/index.m3u8\n";
+
+        Files.write(master, content.getBytes());
+
+        minioService.uploadFile(
+                master,
+                videoId + "/master.m3u8",
+                "application/x-mpegurl"
+        );
+
+        Files.deleteIfExists(master);
+
+        System.out.println("Master playlist created for " + videoId);
     }
 
     private String getContentType(Path path){

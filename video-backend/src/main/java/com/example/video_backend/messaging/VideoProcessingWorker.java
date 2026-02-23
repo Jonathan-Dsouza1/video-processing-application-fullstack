@@ -28,76 +28,16 @@ public class VideoProcessingWorker {
             containerFactory = "rabbitListenerContainerFactory"
     )
     public void process(VideoProcessingTask task){
-        System.out.println("Processing: " + task.getResolution());
+        String videoId = task.getVideoId();
+        System.out.println("Processing: " + videoId);
 
-        videoProcessingService.processResolution(
-                task.getVideoId(),
-                task.getResolution()
-        );
-        System.out.println("Resolution done: " + task.getResolution());
-
-        checkAndMarkReady(task.getVideoId());
-    }
-
-    private void checkAndMarkReady(String videoId){
-        String[] resolutions = {"480p", "720p", "1080p"};
-
-        for(String res : resolutions){
-            String objectName = videoId + "/" + res + "/index.m3u8";
-
-            boolean exists = minioService.objectExists(objectName);
-            System.out.println("Checking: " + objectName + " -> " + exists);
-
-            if(!exists) {
-                return;
-            }
-        }
-
-        String currentStatus = videoStatusService.getStatus(videoId);
-        if("READY".equals(currentStatus)){
-            return;
-        }
-
-        createMasterPlaylist(videoId);
-
+        videoProcessingService.processAllResolutions(videoId);
         videoStatusService.setReady(videoId);
-        System.out.println("All HLS resolutions found. Setting READY");
 
-        Video video = videoRepository.findById(videoId)
-                .orElseThrow();
-
+        Video video = videoRepository.findById(videoId).orElseThrow();
         video.setStatus("READY");
         videoRepository.save(video);
 
         System.out.println("Video READY: " + videoId);
-    }
-
-    private void createMasterPlaylist(String videoId){
-        try {
-            String content =
-                    "#EXTM3U\n" +
-                    "#EXT-X-STREAM-INF:BANDWIDTH=800000,RESOLUTION=854x480\n" +
-                    "480p/index.m3u8\n" +
-                    "#EXT-X-STREAM-INF:BANDWIDTH=2000000,RESOLUTION=1280x720\n" +
-                    "720p/index.m3u8\n" +
-                    "#EXT-X-STREAM-INF:BANDWIDTH=5000000,RESOLUTION=1920x1080\n" +
-                    "1080p/index.m3u8\n";
-
-            Path masterPath = Paths.get("uploads/tmp", videoId, "master.m3u8");
-            Files.createDirectories(masterPath.getParent());
-            Files.writeString(masterPath, content);
-
-            minioService.uploadFile(
-                    masterPath,
-                    videoId + "/master.m3u8",
-                    "application/vnd.apple.mpegurl"
-            );
-
-            Files.deleteIfExists(masterPath);
-
-            System.out.println("Master playlist created for " + videoId);
-        } catch (Exception e){
-            e.printStackTrace();
-        }
     }
 }
