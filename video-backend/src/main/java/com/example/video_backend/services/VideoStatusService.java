@@ -11,16 +11,16 @@ public class VideoStatusService {
 
     private static final String PREFIX = "video:status:";
 
-    public void setProcessing(String videoId){
-        redisTemplate.opsForValue().set(PREFIX + videoId, "PROCESSING");
+    public void setRedisStatus(String videoId, RedisStatus status){
+        redisTemplate.opsForValue().set(PREFIX + videoId, status.name());
     }
 
-    public void setReady(String videoId){
-        redisTemplate.opsForValue().set(PREFIX + videoId, "READY");
-    }
+    public RedisStatus getRedisStatus(String videoId){
+        String value = redisTemplate.opsForValue().get(PREFIX + videoId);
 
-    public String getStatus(String videoId){
-        return redisTemplate.opsForValue().get(PREFIX + videoId);
+        if(value == null) return null;
+
+        return RedisStatus.valueOf(value);
     }
 
     public void delete(String videoId){

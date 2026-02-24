@@ -129,16 +129,29 @@ export default function VideoUpload() {
 
   const pollUntilReady = (videoId, index) => {
     return new Promise((resolve) => {
+      let completed = false;
       const interval = setInterval(async () =>{
+        if(completed) return;
         try {
           const res = await getStatus(videoId);
   
           const status = res.data.trim();
   
           if(status === "READY"){
+            completed = true;
             updateQueue(index, {
               status: "Ready",
               videoId: videoId
+            });
+            clearInterval(interval);
+            resolve();
+          }
+          else if(status === "FAILED"){
+            completed = true;
+            updateQueue(index, {
+              status: "Failed",
+              videoId: videoId,
+              error: "Processing Failed"
             });
             clearInterval(interval);
             resolve();
@@ -149,7 +162,7 @@ export default function VideoUpload() {
           console.error("Data: ", err.response?.data);
   
           if (err.response && err.response.status === 403) {
-            setStatus("Access denied (403)");
+            completed = true;
             clearInterval(interval);
           }
   

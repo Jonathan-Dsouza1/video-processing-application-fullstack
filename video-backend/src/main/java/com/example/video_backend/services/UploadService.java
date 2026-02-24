@@ -66,7 +66,7 @@ public class UploadService {
                 System.out.println("Deleted: " + mergedFile);
                 Files.deleteIfExists(mergedFile);
 
-                videoStatusService.setProcessing(fileId);
+                videoStatusService.setRedisStatus(fileId, RedisStatus.PROCESSING);
 
                 System.out.println("Uploaded to MinIO: " + objectName);
                 return true;

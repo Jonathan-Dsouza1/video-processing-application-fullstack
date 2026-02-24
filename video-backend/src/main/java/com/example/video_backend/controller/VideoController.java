@@ -3,6 +3,7 @@ package com.example.video_backend.controller;
 import com.example.video_backend.config.RabbitConfig;
 import com.example.video_backend.entities.Video;
 import com.example.video_backend.messaging.VideoProcessingTask;
+import com.example.video_backend.services.RedisStatus;
 import com.example.video_backend.services.UploadService;
 import com.example.video_backend.services.VideoService;
 import com.example.video_backend.services.VideoStatusService;
@@ -12,9 +13,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
-import org.springframework.http.MediaType;
 
 import java.io.IOException;
 import java.nio.file.*;
@@ -47,7 +45,7 @@ public class VideoController {
         if(isLastChunk){
             Video video = Video.builder()
                     .videoId(fileId)
-                    .title(title.replace(".mp4", ""))
+                    .title(title.substring(0, title.indexOf(".")))
                     .uploadedAt(LocalDateTime.now())
                     .status("PROCESSING")
                     .build();
@@ -100,12 +98,12 @@ public class VideoController {
 
     @GetMapping("/status/{videoId}")
     public ResponseEntity<String> getStatus(@PathVariable String videoId){
-        String status = videoStatusService.getStatus(videoId);
+        RedisStatus status = videoStatusService.getRedisStatus(videoId);
 
         if(status == null){
             return ResponseEntity.notFound().build();
         }
 
-        return ResponseEntity.ok(status);
+        return ResponseEntity.ok(status.name());
     }
 }

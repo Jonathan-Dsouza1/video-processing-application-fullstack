@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -29,7 +30,7 @@ public class VideoProcessingService {
 
             createMasterPlaylist(videoId);
         } catch (Exception e){
-            e.printStackTrace();
+            throw new RuntimeException("Processing Failed for video: " + videoId, e);
         } finally {
             try {
                 if(inputFile != null) Files.deleteIfExists(inputFile);
@@ -73,16 +74,24 @@ public class VideoProcessingService {
                 "ffmpeg",
                 "-y",
                 "-i", input,
+
+                // VIDEO SETTINGS
                 "-vf", "scale=" + scale,
                 "-c:v", "libx264",
                 "-preset", "veryfast",
                 "-crf", "23",
+                "-threads", "2",
+
+                // AUDIO
                 "-c:a", "aac",
                 "-b:a", "128k",
+
+                // HLS
                 "-hls_time", "4",
                 "-hls_playlist_type", "vod",
                 "-hls_segment_filename", segmentPattern,
-                playlist
+
+                playlist // OUTPUT
         );
 
         pb.inheritIO();
@@ -90,6 +99,44 @@ public class VideoProcessingService {
         int exitCode = process.waitFor();
 
         System.out.println("HLS finished for " + outputDir + " with code: " + exitCode);
+
+        if(exitCode != 0){
+            throw new RuntimeException("FFmpeg failed for resolution: " + outputDir);
+        }
+    }
+
+    public boolean validateAllResolutions(String videoId){
+        return validateHls(videoId, "480p") &&
+                validateHls(videoId, "720p") &&
+                validateHls(videoId, "1080p");
+    }
+
+    private boolean validateHls(String videoId, String resolution){
+        try{
+            String playlistKey = videoId + "/" + resolution + "/index.m3u8";
+
+            if(!minioService.objectExists(playlistKey)){
+                return false;
+            }
+
+            Path tempFile = minioService.downloadFile(
+                    playlistKey,
+                    videoId + "_check" + resolution
+            );
+
+            List<String> lines = Files.readAllLines(tempFile);
+            Files.deleteIfExists(tempFile);
+
+            boolean hasSegments = lines.stream()
+                    .anyMatch(line -> line.endsWith(".ts"));
+
+            boolean hasEndList = lines.stream()
+                    .anyMatch(line -> line.contains("#EXT-X-ENDLIST"));
+
+            return hasSegments && hasEndList;
+        } catch (Exception e){
+            return false;
+        }
     }
 
     private void createMasterPlaylist(String videoId) throws Exception  {

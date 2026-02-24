@@ -3,16 +3,12 @@ package com.example.video_backend.messaging;
 import com.example.video_backend.config.RabbitConfig;
 import com.example.video_backend.entities.Video;
 import com.example.video_backend.repositories.VideoRepository;
-import com.example.video_backend.services.MinioService;
+import com.example.video_backend.services.RedisStatus;
 import com.example.video_backend.services.VideoProcessingService;
 import com.example.video_backend.services.VideoStatusService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
-
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 
 @Component
 @RequiredArgsConstructor
@@ -21,7 +17,6 @@ public class VideoProcessingWorker {
     private final VideoProcessingService videoProcessingService;
     private final VideoRepository videoRepository;
     private final VideoStatusService videoStatusService;
-    private final MinioService minioService;
 
     @RabbitListener(
             queues = RabbitConfig.QUEUE,
@@ -31,13 +26,39 @@ public class VideoProcessingWorker {
         String videoId = task.getVideoId();
         System.out.println("Processing: " + videoId);
 
-        videoProcessingService.processAllResolutions(videoId);
-        videoStatusService.setReady(videoId);
+        try{
+            videoProcessingService.processAllResolutions(videoId);
 
-        Video video = videoRepository.findById(videoId).orElseThrow();
-        video.setStatus("READY");
-        videoRepository.save(video);
+            boolean valid = videoProcessingService.validateAllResolutions(videoId);
 
-        System.out.println("Video READY: " + videoId);
+            Video video = videoRepository.findById(videoId).orElseThrow();
+
+            if(!valid){
+                System.err.println("Validation failed for " + videoId);
+
+                videoStatusService.setRedisStatus(videoId, RedisStatus.FAILED);
+                video.setStatus("FAILED");
+                videoRepository.save(video);
+                return;
+            }
+
+            // Success
+            videoStatusService.setRedisStatus(videoId, RedisStatus.READY);
+            video.setStatus("READY");
+            videoRepository.save(video);
+
+            System.out.println("Video READY: " + videoId);
+
+        } catch (Exception e) {
+            System.out.println("Processing FAILED for: " + videoId);
+
+            videoStatusService.setRedisStatus(videoId, RedisStatus.FAILED);
+
+            Video video = videoRepository.findById(videoId).orElse(null);
+            if(video != null){
+                video.setStatus("FAILED");
+                videoRepository.save(video);
+            }
+        }
     }
 }
