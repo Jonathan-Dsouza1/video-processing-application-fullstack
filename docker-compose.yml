@@ -1,4 +1,7 @@
+version: "3.9"
+
 services:
+
   minio:
     image: minio/minio
     container_name: minio
@@ -45,12 +48,13 @@ services:
       - video-network
 
   video-app:
-    image: video-backend:1.5
+    image: video-backend:1.6
     container_name: video-app
     depends_on:
       - mysql
       - redis
       - rabbitmq
+      - minio
     ports:
       - "8080:8080"
     environment:
@@ -65,3 +69,4 @@ networks:
 
 volumes:
   mysql-data:
+  minio_data:
