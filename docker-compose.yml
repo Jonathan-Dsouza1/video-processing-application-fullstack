@@ -60,7 +60,7 @@ services:
     environment:
       SPRING_PROFILES_ACTIVE: docker
     volumes:
-      - ./uploads:/app/uploads
+      - ./video-backend/uploads:/app/uploads
     networks:
       - video-network
 

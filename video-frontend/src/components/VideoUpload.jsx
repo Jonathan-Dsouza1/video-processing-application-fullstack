@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { getStatus, uploadChunk, getUploadedChunks } from '../api/videoApi';
+import { getStatus, uploadChunk, getUploadedChunks, deleteVideo } from '../api/videoApi';
 import VideoPlayer from './VideoPlayer';
 
 const CHUNK_SIZE = 10 * 1024 * 1024 // 10MB
@@ -173,6 +173,33 @@ export default function VideoUpload() {
       }, 3000);
     });
   };
+
+  const handleReupload = async (index) => {
+    const item = queue[index];
+
+    try{
+      if(item.videoId){
+        await deleteVideo(item.videoId);
+      }
+
+      const newId = crypto.randomUUID();
+
+      updateQueue(index, {
+        id: newId,
+        progress: 0,
+        status: "STAGED",
+        videoId: null,
+        error: null
+      });
+
+      if(!isUploading){
+        handleUpload();
+      }
+    } catch (err) {
+      console.error("Re-upload failed: ", err);
+      alert("Failed to delete previous video");
+    }
+  };
   
   return (
     <div className='space-y-4'>
@@ -229,6 +256,14 @@ export default function VideoUpload() {
                 <p className=' text-sm text-gray-600'>
                   Status: {item.status}
                 </p>
+                {item.status === "Failed" && (
+                  <button
+                    onClick={() => handleReupload(index)}
+                    className='mt-2 bg-red-500 text-white px-3 py-1 rounded text-sm'
+                  >
+                    Re-upload
+                  </button>
+                )}
               </div>
 
               {item.status === "STAGED" && (
