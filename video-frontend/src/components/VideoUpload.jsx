@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getStatus, uploadChunk, getUploadedChunks, deleteVideo } from '../api/videoApi';
 import VideoPlayer from './VideoPlayer';
 
@@ -9,7 +9,26 @@ export default function VideoUpload() {
   const [currentIndex, setCurrentIndex] = useState(-1);
   const [isUploading, setIsUploading] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [retryingIndex, setRetryingIndex] = useState(null);
+  const [autoStart, setAutoStart] = useState(false);
   const pauseRef = useRef(false);
+
+  useEffect(() => {
+    if (!autoStart) return;
+    if (isUploading) return;
+
+    const hasPending = queue.some(
+      item =>
+        item.status === "STAGED" ||
+        item.status === "Paused" ||
+        item.status === "Paused (Network Issue)"
+    );
+
+    if (hasPending) {
+      handleUpload();
+      setAutoStart(false);
+    }
+  }, [queue, autoStart]);
 
   const handleFileSelect = (e) => {
     const files = Array.from(e.target.files);
@@ -32,6 +51,14 @@ export default function VideoUpload() {
     pauseRef.current = false;
     setIsPaused(false);
     handleUpload();
+  };
+
+  const updateQueue = (index, changes) => {
+    setQueue(prev =>
+      prev.map((item, i) => 
+        i == index ? { ...item, ...changes} : item
+      )
+    );
   };
 
   const uploadSingleFile = async (item, index) => {
@@ -88,13 +115,9 @@ export default function VideoUpload() {
     return true;
   }
 
-  const updateQueue = (index, changes) => {
-    setQueue(prev =>
-      prev.map((item, i) => 
-        i == index ? { ...item, ...changes} : item
-      )
-    );
-  };
+  const startUploadClicked = () => {
+    setAutoStart(true);
+  }
 
   const handleUpload = async () => {
     if(queue.length === 0){
@@ -178,26 +201,36 @@ export default function VideoUpload() {
     const item = queue[index];
 
     try{
+      setRetryingIndex(index);
+
       if(item.videoId){
         await deleteVideo(item.videoId);
       }
 
       const newId = crypto.randomUUID();
+      
+      setQueue(prev => 
+        prev.map((q, i) => 
+          i === index
+            ? {
+                ...q,
+                id: newId,
+                progress: 0,
+                status: "STAGED",
+                videoId: null,
+                error: null
+              }
+            : q
+        )      
+      );
 
-      updateQueue(index, {
-        id: newId,
-        progress: 0,
-        status: "STAGED",
-        videoId: null,
-        error: null
-      });
+      setAutoStart(true);
 
-      if(!isUploading){
-        handleUpload();
-      }
     } catch (err) {
       console.error("Re-upload failed: ", err);
       alert("Failed to delete previous video");
+    } finally {
+      setRetryingIndex(null);
     }
   };
   
@@ -213,8 +246,8 @@ export default function VideoUpload() {
         />
 
         <button 
-          onClick={handleUpload} 
-          disabled={queue.length === 0 || isUploading}
+          onClick={startUploadClicked} 
+          disabled={!queue || queue.length === 0 || isUploading}
           className='bg-blue-500 text-white px-4 py-2 rounded disabled:bg-gray-400'
         >
           Start Upload
@@ -259,9 +292,14 @@ export default function VideoUpload() {
                 {item.status === "Failed" && (
                   <button
                     onClick={() => handleReupload(index)}
-                    className='mt-2 bg-red-500 text-white px-3 py-1 rounded text-sm'
+                    disabled={retryingIndex === index}
+                    className={`mt-2 px-3 py-1 text-white rounded text-sm ${
+                      retryingIndex === index
+                        ? "bg-gray-400 cursor-not-allowed"
+                        : "bg-red-500 hover:bg-red-600"
+                    }`}
                   >
-                    Re-upload
+                    {retryingIndex === index ? "Retrying..." : "Re-upload"}
                   </button>
                 )}
               </div>
@@ -292,7 +330,8 @@ export default function VideoUpload() {
             </div>
 
             <p className='text-xs mt-1'>{item.progress}%</p>
-            {item.videoId &&  (
+            {item.videoId &&
+            item.status !== "Failed"  && (
               <div className='mt-3'>
                 <VideoPlayer videoId={item.videoId} />
               </div>
