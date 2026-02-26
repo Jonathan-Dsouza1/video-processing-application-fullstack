@@ -1,27 +1,46 @@
-# Backend (Spring Boot)
+# ===============================
+# Backend (Spring Boot - All Services)
+# ===============================
+
 HELP.md
-video-backend/target/
-.mvn/wrapper/maven-wrapper.jar
+
+# Maven build output
+**/target/
 !**/src/main/**/target/
 !**/src/test/**/target/
-video-backend/uploads/
+
+# Local upload/temp folders
+**/uploads/
+
+# Prevent committing built jars
+**/*.jar
+
+# ===============================
+# IDEs
+# ===============================
 
 # STS / Eclipse
 .apt_generated
 .classpath
 .factorypath
 .project
-.settings
+.settings/
 .springBeans
 .sts4-cache
 
-# IntelliJ IDEA
+# IntelliJ
 .idea/
 *.iws
 *.iml
 *.ipr
 
+# VS Code
+.vscode/
+!.vscode/extensions.json
+
+# ===============================
 # NetBeans
+# ===============================
 /nbproject/private/
 /nbbuild/
 /dist/
@@ -31,13 +50,18 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 
-# Frontend (Vite + React)
+# ===============================
+# Frontend
+# ===============================
 node_modules/
+dist/
 dist-ssr/
 coverage/
 *.local
 
+# ===============================
 # Logs
+# ===============================
 logs/
 *.log
 npm-debug.log*
@@ -46,16 +70,15 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# Environment variables
+# ===============================
+# Environment
+# ===============================
 .env
 .env.*
 
-# VS Code
-.vscode/*
-!.vscode/extensions.json
-.vscode/
-
+# ===============================
 # OS / Misc
+# ===============================
 .DS_Store
 Thumbs.db
 *.suo
@@ -64,7 +87,8 @@ Thumbs.db
 *.sln
 *.sw?
 
-# Docker
-**/uploads/
+# ===============================
+# Docker / Images
+# ===============================
 *.tar
 docker-data/
